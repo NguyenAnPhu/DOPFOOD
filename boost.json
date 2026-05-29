@@ -1,9 +1,0 @@
-{
-    "agents": [
-        "claude_code"
-    ],
-    "cloud": false,
-    "skills": [
-        "laravel-best-practices"
-    ]
-}
