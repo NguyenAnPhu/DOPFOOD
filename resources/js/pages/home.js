@@ -19,9 +19,9 @@ PAGE?.addEventListener('auth:changed', () => {
 });
 
 async function loadSavedMenus() {
-  const grid     = document.getElementById('menu-grid');
+  const grid = document.getElementById('menu-grid');
   const skeleton = document.getElementById('menu-skeleton');
-  const empty    = document.getElementById('menu-empty');
+  const empty = document.getElementById('menu-empty');
 
   skeleton?.classList.remove('hidden');
   if (grid) grid.innerHTML = '';
@@ -52,7 +52,7 @@ function sourceBadge(source) {
 }
 
 function renderMenus(menus) {
-  const grid  = document.getElementById('menu-grid');
+  const grid = document.getElementById('menu-grid');
   const empty = document.getElementById('menu-empty');
   if (!grid) return;
 
@@ -67,23 +67,23 @@ function renderMenus(menus) {
     <div class="menu-card group relative bg-white rounded-2xl border border-gray-100
                 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden">
       <div class="h-1.5 bg-gradient-to-r from-orange-400 to-amber-400"></div>
-      <div class="p-5">
+      <div class="p-5 h-full flex flex-col">
         <div class="flex items-start gap-3 mb-3">
           <div class="w-11 h-11 rounded-xl bg-orange-50 flex items-center justify-center text-xl flex-shrink-0
                       group-hover:bg-orange-100 transition-colors">🍽️</div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap mb-0.5">
-              <h3 class="font-semibold text-gray-900 truncate">${esc(menu.name)}</h3>
+              <h3 class="font-semibold text-gray-900 truncate w-full">${esc(menu.name)}</h3>
               ${sourceBadge(menu.source)}
             </div>
-            ${menu.description ? `<p class="text-xs text-gray-500 truncate mt-0.5">${esc(menu.description)}</p>` : ''}
           </div>
         </div>
+        ${menu.description ? `<p class="text-xs text-gray-500 truncate mb-2">${esc(menu.description)}</p>` : ''}
         <div class="flex items-center gap-3 text-xs text-gray-400 mb-4 flex-wrap">
-          ${menu.phone   ? `<span>📞 ${esc(menu.phone)}</span>`                              : ''}
+          ${menu.phone ? `<span>📞 ${esc(menu.phone)}</span>` : ''}
           ${menu.address ? `<span class="truncate max-w-[140px]">📍 ${esc(menu.address)}</span>` : ''}
         </div>
-        <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center justify-between gap-2 mt-auto">
           <button onclick="window.DOPRouter?.navigate('/menu/${menu.menu_id}')"
                   class="text-xs text-gray-400 hover:text-orange-500 transition-colors flex items-center gap-1">
             🍜 ${menu.items_count ?? '?'} món
@@ -120,23 +120,6 @@ window.createOrder = async function (menuId, btn) {
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
   try {
     const order = await api.post('/orders', { menu_id: menuId, split_type: 'even' });
-    
-    // Auto-join the host
-    const u = window.DOPAuth?.user;
-    if (u) {
-      try {
-        const { guestSession } = await import('../api.js');
-        const token = guestSession.getForOrder(order.id) || crypto.randomUUID();
-        const res = await api.post(`/orders/${order.id}/join`, {
-          guest_name: u.name,
-          guest_phone: u.phone ?? '',
-          session_token: token,
-        });
-        const savedToken = res.participant?.session_token ?? res.session_token ?? token;
-        guestSession.setForOrder(order.id, savedToken);
-        guestSession.setProfile({ name: u.name, phone: u.phone ?? '' });
-      } catch (e) { console.error('Auto join failed', e); }
-    }
 
     showToast('✅ Tạo đơn thành công!', 'success');
     // Reload saved menus (menu này sẽ được update/thêm snapshot)
@@ -163,17 +146,17 @@ window.openCreateMenuModal = function () {
 
 window.handleMenuSave = async function (e) {
   e.preventDefault();
-  const btn   = document.getElementById('btn-menu-save');
+  const btn = document.getElementById('btn-menu-save');
   const errEl = document.getElementById('menu-error');
   btn.disabled = true; btn.textContent = 'Đang lưu…';
   errEl.classList.add('hidden');
 
   try {
     const payload = {
-      name:        document.getElementById('menu-name').value,
+      name: document.getElementById('menu-name').value,
       description: document.getElementById('menu-desc').value,
-      phone:       document.getElementById('menu-phone').value,
-      address:     document.getElementById('menu-address').value,
+      phone: document.getElementById('menu-phone').value,
+      address: document.getElementById('menu-address').value,
     };
     await api.post('/menus', payload);
     document.getElementById('modal-menu').style.display = 'none';

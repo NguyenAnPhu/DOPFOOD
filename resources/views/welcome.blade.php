@@ -11,22 +11,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
   <meta name="csrf-token" content="{{ csrf_token() }}" />
-  <link rel="apple-touch-icon" sizes="57x57" href="fav/apple-icon-57x57.png">
-  <link rel="apple-touch-icon" sizes="60x60" href="fav/apple-icon-60x60.png">
-  <link rel="apple-touch-icon" sizes="72x72" href="fav/apple-icon-72x72.png">
-  <link rel="apple-touch-icon" sizes="76x76" href="fav/apple-icon-76x76.png">
-  <link rel="apple-touch-icon" sizes="114x114" href="fav/apple-icon-114x114.png">
-  <link rel="apple-touch-icon" sizes="120x120" href="fav/apple-icon-120x120.png">
-  <link rel="apple-touch-icon" sizes="144x144" href="fav/apple-icon-144x144.png">
-  <link rel="apple-touch-icon" sizes="152x152" href="fav/apple-icon-152x152.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="fav/apple-icon-180x180.png">
-  <link rel="icon" type="image/png" sizes="192x192"  href="fav/android-icon-192x192.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="fav/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="96x96" href="fav/favicon-96x96.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="fav/favicon-16x16.png">
-  <link rel="manifest" href="fav/manifest.json">
-  <meta name="msapplication-TileColor" content="#ffffff">
-  <meta name="msapplication-TileImage" content="fav/ms-icon-144x144.png">
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="fav/favicon-96x96.png" sizes="96x96" />
+  <link rel="icon" type="image/svg+xml" href="fav/favicon.svg" />
+  <link rel="shortcut icon" href="fav/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="fav/apple-touch-icon.png" />
+  <link rel="manifest" href="fav/site.webmanifest" />
+  <!-- end Favicon -->
+
   <meta name="theme-color" content="#ffffff">
 
   @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -273,7 +265,7 @@
       <!-- Menu Library (chỉ hiện khi đã đăng nhập) -->
       <div id="menu-library-section" class="hidden">
         <div class="flex items-center justify-between mb-4 gap-3">
-          <div class="flex items-center gap-3 flex-shrink-0">
+          <div class="flex items-center gap-3 shrink-0">
             <h2 class="text-lg font-bold text-gray-900">🍽️ Thư viện Menu</h2>
             <button id="btn-create-menu" onclick="openCreateMenuModal()" class="hidden btn-secondary text-xs px-3 py-1.5 shadow-sm">+ Tạo quán mới</button>
           </div>
@@ -282,12 +274,12 @@
                  fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
             </svg>
-            <input id="menu-search" type="search" placeholder="Tìm tên quán…" class="form-input pl-9 text-sm" />
+            <input id="menu-search" type="search" placeholder="Tìm tên quán…" class="form-input pl-9! text-sm" />
           </div>
         </div>
 
         <!-- Skeleton -->
-        <div id="menu-skeleton" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 hidden">
+        <div id="menu-skeleton" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div class="card p-5 animate-pulse"><div class="h-4 bg-gray-100 rounded w-3/4 mb-3"></div><div class="h-3 bg-gray-100 rounded w-1/2 mb-4"></div><div class="h-9 bg-gray-100 rounded"></div></div>
           <div class="card p-5 animate-pulse"><div class="h-4 bg-gray-100 rounded w-2/3 mb-3"></div><div class="h-3 bg-gray-100 rounded w-1/3 mb-4"></div><div class="h-9 bg-gray-100 rounded"></div></div>
           <div class="card p-5 animate-pulse"><div class="h-4 bg-gray-100 rounded w-3/4 mb-3"></div><div class="h-3 bg-gray-100 rounded w-1/2 mb-4"></div><div class="h-9 bg-gray-100 rounded"></div></div>
@@ -325,6 +317,17 @@
               <p id="md-menu-phone"></p>
               <p id="md-menu-address"></p>
             </div>
+
+            <!-- Báo hiệu đang xem bản lưu cục bộ -->
+            <div id="md-snapshot-banner" class="hidden mb-5 p-3 bg-blue-50 border border-blue-100 rounded-xl">
+              <div class="flex items-center gap-2 text-blue-700 text-xs font-medium mb-2">
+                💾 Đang xem bản lưu
+              </div>
+              <button id="md-btn-sync" class="w-full text-xs bg-white border border-blue-200 text-blue-600 px-3 py-2 rounded-lg font-medium hover:bg-blue-50 transition-colors shadow-sm">
+                🔄 Đồng bộ món mới
+              </button>
+            </div>
+
             <button id="md-btn-create" class="btn-primary w-full">🚀 Tạo đơn từ Menu này</button>
           </div>
         </div>
@@ -415,7 +418,21 @@
             <div id="my-cart-items" class="min-h-[60px]"></div>
             <div class="flex items-center justify-between pt-3 border-t border-gray-100 mt-2">
               <span class="text-sm font-semibold text-gray-700">Tạm tính</span>
-              <span id="my-cart-total" class="font-bold text-orange-600 text-base">0 ₫</span>
+              <span id="my-cart-total" class="font-bold text-gray-900 text-base">0 ₫</span>
+            </div>
+            <div id="my-cart-breakdown" class="hidden mt-2 pt-2 border-t border-dashed border-gray-200 space-y-1.5">
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-500">Phí ship (chia sẻ)</span>
+                <span id="my-cart-shipping" class="text-gray-700 font-medium">0 ₫</span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-500">Giảm giá (chia sẻ)</span>
+                <span id="my-cart-discount" class="text-gray-700 font-medium">0 ₫</span>
+              </div>
+              <div class="flex items-center justify-between pt-2 mt-2 border-t border-gray-200">
+                <span class="text-sm font-bold text-gray-900">Thành tiền</span>
+                <span id="my-cart-final" class="font-black text-orange-600 text-lg">0 ₫</span>
+              </div>
             </div>
             <button id="btn-ready" class="btn-primary w-full mt-4">✅ Hoàn tất chọn món</button>
           </div>
@@ -514,7 +531,7 @@
           <span id="pay-total-amount" class="text-xl font-extrabold text-gray-900">–</span>
         </div>
         <!-- Progress -->
-        <div class="px-6 py-3">
+        <div class="px-6 py-3" id="pay-progress-container">
           <div class="flex justify-between text-xs text-gray-500 mb-1.5">
             <span id="pay-progress-text">Đang tải…</span>
           </div>
@@ -735,6 +752,7 @@
       </div>
       <form id="form-menu-item" class="p-6 space-y-4" onsubmit="handleMenuItemSave(event)">
         <input type="hidden" id="mi-menu-id" />
+        <input type="hidden" id="mi-item-id" />
         <div>
           <label class="form-label">Tên món <span class="text-red-400">*</span></label>
           <input id="mi-name" type="text" class="form-input" required placeholder="VD: Phở Bò Tái Nạm" />

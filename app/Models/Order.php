@@ -76,6 +76,14 @@ class Order extends Model
         return $this->hasMany(OrderItem::class, 'order_id');
     }
 
+    /**
+     * Danh sách user đã ẩn đơn hàng này khỏi lịch sử của họ.
+     */
+    public function hiddenByUsers(): HasMany
+    {
+        return $this->hasMany(OrderUserHidden::class, 'order_id');
+    }
+
     // -------------------------------------------------------------------------
     // Business Logic
     // -------------------------------------------------------------------------

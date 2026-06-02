@@ -59,6 +59,7 @@ function renderHistory(orders) {
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
             <h3 class="font-semibold text-gray-900 truncate">${escHtml(order.menu?.name ?? 'Menu không xác định')}</h3>
+            ${order.host_id === (window.DOPAuth?.user?.id) ? '<span class="status-badge badge-orange text-xs">👑 Host</span>' : '<span class="status-badge badge-gray text-xs">👤 Khách</span>'}
             <span class="status-badge ${historyStatusClass(order.status)} text-xs">${historyStatusLabel(order.status)}</span>
           </div>
           <div class="flex items-center gap-3 mt-1 text-xs text-gray-400">
@@ -104,7 +105,7 @@ window.navigateToOrder = function (shareLink, status) {
 };
 
 window.deleteOrder = async function (orderId, menuName) {
-  if (!confirm(`Bạn có chắc muốn xóa đơn "${menuName}"?\nHành động này không thể hoàn tác.`)) {
+  if (!confirm(`Bạn có chắc muốn xóa đơn "${menuName}" khỏi lịch sử của mình?`)) {
     return;
   }
 

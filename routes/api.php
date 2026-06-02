@@ -93,7 +93,9 @@ Route::middleware('auth:web')->group(function () {
 
     // --- User Profile & Bank Settings ---
     Route::get('/user/profile', [UserController::class, 'show']);            // GET   /api/user/profile
-    Route::get('/user/saved-menus', [UserController::class, 'savedMenus']);  // GET   /api/user/saved-menus
+    Route::get('/user/saved-menus', [UserController::class, 'savedMenus']);
+    Route::get('/user/saved-menus/{menuId}', [UserController::class, 'showSavedMenu']);
+    Route::post('/user/saved-menus/{menuId}/sync', [UserController::class, 'syncSavedMenu']);  // GET   /api/user/saved-menus
     Route::patch('/user/profile', [UserController::class, 'updateProfile']); // PATCH /api/user/profile
     Route::patch('/user/bank', [UserController::class, 'updateBank']);        // PATCH /api/user/bank
 

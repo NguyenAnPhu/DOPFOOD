@@ -21,6 +21,7 @@ class OrderParticipant extends Model
      */
     protected $fillable = [
         'order_id',
+        'user_id',
         'guest_name',
         'guest_phone',
         'session_token',
@@ -47,6 +48,14 @@ class OrderParticipant extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class, 'order_id');
+    }
+
+    /**
+     * User đã đăng nhập liên kết với participant này (nullable).
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     /**

@@ -20,12 +20,21 @@ class OrderController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $userId = $request->user()->id;
+
         $query = Order::with(['menu', 'host'])
             ->withCount('participants')
-            ->where('is_hidden', false);
-
-        // Filter: Auth user chỉ xem đơn của mình làm Host
-        $query->where('host_id', $request->user()->id);
+            // Loại bỏ các đơn hàng mà user này đã ẩn
+            ->whereDoesntHave('hiddenByUsers', function ($q) use ($userId) {
+                $q->where('user_id', $userId);
+            })
+            // Lấy đơn hàng mà user làm Host HOẶC user là participant
+            ->where(function ($q) use ($userId) {
+                $q->where('host_id', $userId)
+                  ->orWhereHas('participants', function ($q2) use ($userId) {
+                      $q2->where('user_id', $userId);
+                  });
+            });
 
         // Lọc theo trạng thái
         if ($request->filled('status')) {
@@ -97,8 +106,21 @@ class OrderController extends Controller
             ->with([
                 'menu.items',
                 'participants.items.menuItem',
+                'host', // Cần thông tin host để fallback bank info
             ])
             ->firstOrFail();
+
+        // Fallback bank info từ profile host nếu đơn chưa có thông tin
+        if ($order->host) {
+            if (empty($order->bank_name)) {
+                $order->bank_name = $order->host->bank_name;
+                $order->bank_account_number = $order->host->bank_account_number;
+                $order->bank_account_name = $order->host->bank_account_name;
+            }
+            if (empty($order->qr_image_url)) {
+                $order->qr_image_url = $order->host->qr_image_url;
+            }
+        }
 
         return response()->json($order);
     }
@@ -113,6 +135,12 @@ class OrderController extends Controller
     public function updateStatus(Request $request, int $id): JsonResponse
     {
         $order = Order::findOrFail($id);
+
+        if (!$request->user() || $order->host_id !== $request->user()->id) {
+            return response()->json([
+                'message' => 'Chỉ Host mới có quyền thay đổi trạng thái đơn hàng.',
+            ], 403);
+        }
 
         $request->validate([
             'status' => ['required', Rule::in(['ordering', 'locked', 'completed', 'closed', 'cancelled'])],
@@ -137,8 +165,8 @@ class OrderController extends Controller
         $order->status = $newStatus;
         $order->save();
 
-        // Khi Host hoàn tất đơn → tính toán chia tiền cho toàn bộ participants
-        if ($newStatus === 'completed') {
+        // Khi Host khóa đơn hoặc hoàn tất đơn → tính toán chia tiền cho toàn bộ participants
+        if (in_array($newStatus, ['locked', 'completed'])) {
             $order->recalculateShares();
             $order->refresh();
         }
@@ -155,6 +183,12 @@ class OrderController extends Controller
     public function updateFees(Request $request, int $id): JsonResponse
     {
         $order = Order::findOrFail($id);
+
+        if (!$request->user() || $order->host_id !== $request->user()->id) {
+            return response()->json([
+                'message' => 'Chỉ Host mới có quyền thay đổi phí.',
+            ], 403);
+        }
 
         // Chỉ có thể cập nhật khi đơn chưa hoàn tất
         if (in_array($order->status, ['completed', 'closed'])) {
@@ -187,18 +221,24 @@ class OrderController extends Controller
     public function destroy(Request $request, int $id): JsonResponse
     {
         $order = Order::findOrFail($id);
+        $userId = $request->user()->id;
 
-        // Chỉ Host mới được xóa đơn
-        if (!$request->user() || $order->host_id !== $request->user()->id) {
+        // Chỉ cho phép Host hoặc người tham gia ẩn đơn hàng
+        $isHost = $order->host_id === $userId;
+        $isParticipant = $order->participants()->where('user_id', $userId)->exists();
+
+        if (!$isHost && !$isParticipant) {
             return response()->json([
                 'message' => 'Bạn không có quyền xóa đơn hàng này.',
             ], 403);
         }
 
-        // Xóa đơn hàng từ lịch sử của Host (ẩn đi) thay vì xóa thật
-        $order->is_hidden = true;
-        $order->save();
+        // Xóa đơn hàng từ lịch sử của user (ẩn đi) thay vì xóa thật
+        \App\Models\OrderUserHidden::firstOrCreate([
+            'order_id' => $order->id,
+            'user_id' => $userId,
+        ]);
 
-        return response()->json(['message' => 'Đã xóa đơn hàng thành công.']);
+        return response()->json(['message' => 'Đã xóa đơn hàng khỏi lịch sử của bạn.']);
     }
 }

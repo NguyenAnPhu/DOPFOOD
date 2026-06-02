@@ -51,7 +51,7 @@ function renderPayment() {
     document.getElementById('pay-my-section')?.classList.add('hidden');
   }
 
-  renderAllParticipants(o.participants ?? [], o, isHost);
+  renderAllParticipants(o.participants ?? [], o, isHost, me);
 }
 
 function renderMyPayment(participant, order) {
@@ -71,15 +71,18 @@ function renderMyPayment(participant, order) {
     const img    = document.getElementById('pay-qr-img');
 
     // Ưu tiên ảnh QR do Host upload, fallback thông tin TK
+
     if (order.qr_image_url) {
       if (img) { img.src = order.qr_image_url; img.alt = 'QR Chuyển khoản'; }
+      if (qrSection) qrSection.classList.remove('hidden');
     } else if (order.bank_account_number) {
       const addInfo = encodeURIComponent(`DOPFOOD ${order.share_link} ${participant.guest_name}`);
       const qrUrl   = `https://img.vietqr.io/image/${order.bank_name}-${order.bank_account_number}-compact2.png` +
                       `?amount=${amount}&addInfo=${addInfo}&accountName=${encodeURIComponent(order.bank_account_name ?? '')}`;
       if (img) { img.src = qrUrl; img.alt = 'VietQR'; }
+      if (qrSection) qrSection.classList.remove('hidden');
     } else {
-      document.getElementById('pay-qr-section')?.classList.add('hidden');
+      if (qrSection) qrSection.classList.add('hidden');
     }
 
     setText('pay-bank-name',     order.bank_name ?? '');
@@ -100,16 +103,16 @@ function renderMyPayment(participant, order) {
   }
 }
 
-function renderAllParticipants(participants, order, isHost) {
+function renderAllParticipants(participants, order, isHost, me) {
   const el = document.getElementById('pay-all-participants');
   if (!el) return;
 
-  // Xác định host's participant: dùng user name hoặc host_id nếu có
-  const hostUser = window.DOPAuth?.user;
-  const hostName = (order.host_id && hostUser && order.host_id === hostUser.id)
-    ? hostUser.name : null;
+  el.innerHTML = participants.map(p => {
+    const isPHost = p.user_id && p.user_id === order.host_id;
+    const isMe = me && p.id === me.id;
+    const showStatus = isHost || isMe;
 
-  el.innerHTML = participants.map(p => `
+    return `
     <div class="flex items-center gap-3 py-3 border-b border-gray-100 last:border-0">
       <div class="w-9 h-9 rounded-full bg-gradient-to-br from-orange-400 to-orange-600
                   flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
@@ -118,29 +121,31 @@ function renderAllParticipants(participants, order, isHost) {
       <div class="flex-1 min-w-0">
         <p class="font-medium text-gray-800 text-sm">
           ${escHtml(p.guest_name)}
-          ${hostName && p.guest_name === hostName ? '<span class="text-xs text-orange-500 font-normal ml-1">👑 Host</span>' : ''}
+          ${isPHost ? '<span class="text-xs text-orange-500 font-normal ml-1">👑 Host</span>' : ''}
         </p>
         <p class="text-xs text-gray-400">${p.guest_phone ?? ''}</p>
       </div>
       <div class="text-right">
         <p class="font-semibold text-orange-600 text-sm">${fmt(p.total_share)}</p>
+        ${!isPHost && showStatus ? `
         <span class="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full ${payStatusClass(p.payment_status)}">
           ${payStatusLabel(p.payment_status)}
         </span>
+        ` : ''}
       </div>
-      ${(isHost && p.payment_status === 'submitted') ? `
+      ${isHost && !isPHost ? `
         <button
-          class="btn-approve ml-2 text-xs bg-green-500 hover:bg-green-600 text-white px-3 py-1.5
+          class="btn-approve ml-2 text-xs ${p.payment_status === 'approved' ? 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200' : 'bg-green-500 hover:bg-green-600 text-white'} px-3 py-1.5
                  rounded-lg transition-colors font-medium"
           onclick="approvePayment(${order.id}, ${p.id})">
-          ✓ Xác nhận
+          ${p.payment_status === 'approved' ? 'Chuyển về Chờ TT' : '✓ Xác nhận Đã TT'}
         </button>
       ` : ''}
     </div>
-  `).join('');
+  `}).join('');
 
   // Đếm thanh toán: trừ Host ra (Host không cần thanh toán cho chính mình)
-  const guests   = participants.filter(p => !(hostName && p.guest_name === hostName));
+  const guests   = participants.filter(p => !(p.user_id && p.user_id === order.host_id));
   const total    = guests.length;
   const approved = guests.filter(p => p.payment_status === 'approved').length;
   const pct      = total > 0 ? Math.round((approved / total) * 100) : 0;
@@ -148,6 +153,12 @@ function renderAllParticipants(participants, order, isHost) {
   setText('pay-progress-text', `Đã thu: ${approved}/${total} người (${pct}%)`);
   const bar = document.getElementById('pay-progress-bar');
   if (bar) bar.style.width = `${pct}%`;
+
+  const progressContainer = document.getElementById('pay-progress-container');
+  if (progressContainer) {
+    if (isHost) progressContainer.classList.remove('hidden');
+    else progressContainer.classList.add('hidden');
+  }
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
@@ -174,7 +185,7 @@ window.approvePayment = async function (orderId, participantId) {
   try {
     await api.patch(`/orders/${orderId}/participants/${participantId}/approve`, {});
     await reload();
-    showToast('✅ Đã xác nhận nhận tiền!', 'success');
+    showToast('✅ Đã cập nhật trạng thái thanh toán!', 'success');
   } catch (er) {
     showToast('Lỗi: ' + er.message, 'error');
   }

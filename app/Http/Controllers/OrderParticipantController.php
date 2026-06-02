@@ -38,6 +38,12 @@ class OrderParticipantController extends Controller
                 ->first();
 
             if ($existing) {
+                // Cập nhật user_id nếu participant chưa có và user đang đăng nhập
+                if (!$existing->user_id && $request->user()) {
+                    $existing->user_id = $request->user()->id;
+                    $existing->save();
+                }
+
                 // Nếu user đã đăng nhập, vẫn upsert snapshot menu (cập nhật nếu trùng quán)
                 $this->maybeSaveMenuForUser($request, $order);
 
@@ -48,7 +54,14 @@ class OrderParticipantController extends Controller
             }
         }
 
-        $participant = $order->participants()->create($request->validated());
+        $data = $request->validated();
+
+        // Gắn user_id nếu user đã đăng nhập
+        if ($request->user()) {
+            $data['user_id'] = $request->user()->id;
+        }
+
+        $participant = $order->participants()->create($data);
 
         // Nếu user đã đăng nhập → lưu snapshot menu vào thư viện
         $this->maybeSaveMenuForUser($request, $order);
@@ -133,25 +146,34 @@ class OrderParticipantController extends Controller
     /**
      * Host xác nhận đã nhận tiền từ Guest.
      * Đổi payment_status: submitted → approved.
+     * CHỈ HOST mới có quyền thực hiện.
      *
      * PATCH /api/orders/{orderId}/participants/{id}/approve
      */
-    public function approvePayment(int $orderId, int $id): JsonResponse
+    public function approvePayment(Request $request, int $orderId, int $id): JsonResponse
     {
         $participant = OrderParticipant::where('order_id', $orderId)->findOrFail($id);
+        $order = $participant->order;
 
-        if ($participant->payment_status !== 'submitted') {
+        // Chỉ Host mới được approve thanh toán
+        if (!$request->user() || $order->host_id !== $request->user()->id) {
             return response()->json([
-                'message' => 'Chỉ có thể xác nhận khi Guest đã gửi bằng chứng thanh toán.',
-            ], 422);
+                'message' => 'Chỉ Host mới có quyền xác nhận thanh toán.',
+            ], 403);
         }
 
-        $participant->payment_status = 'approved';
+        if ($participant->payment_status === 'approved') {
+            $participant->payment_status = 'pending';
+        } else {
+            $participant->payment_status = 'approved';
+        }
         $participant->save();
 
         // Kiểm tra xem tất cả participants đã thanh toán chưa → tự động close đơn
-        $order = $participant->order;
+        // Loại trừ participant của Host ra khỏi kiểm tra
         $allPaid = $order->participants()
+            ->where('user_id', '!=', $order->host_id)
+            ->orWhereNull('user_id')
             ->where('payment_status', '!=', 'approved')
             ->doesntExist();
 
@@ -161,7 +183,7 @@ class OrderParticipantController extends Controller
         }
 
         return response()->json([
-            'message'      => 'Đã xác nhận thanh toán thành công!',
+            'message'      => 'Đã cập nhật trạng thái thanh toán!',
             'participant'  => $participant,
             'order_closed' => $allPaid,
         ]);

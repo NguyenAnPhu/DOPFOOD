@@ -70,6 +70,7 @@ class UserSavedMenu extends Model
                         ->where('menu_id', $menu->id)
                         ->first();
 
+        if ($existing) {
             $updateData = [
                 'last_synced_at'       => now(),
                 // Nâng source lên 'created' nếu thích hợp

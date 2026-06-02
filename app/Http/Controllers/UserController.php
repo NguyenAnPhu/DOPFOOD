@@ -127,4 +127,47 @@ class UserController extends Controller
 
         return response()->json($saved);
     }
+
+    /**
+     * Lấy chi tiết snapshot của một menu cụ thể.
+     *
+     * GET /api/user/saved-menus/{menuId}
+     */
+    public function showSavedMenu(Request $request, int $menuId): JsonResponse
+    {
+        $s = UserSavedMenu::where('user_id', $request->user()->id)
+            ->where('menu_id', $menuId)
+            ->firstOrFail();
+
+        return response()->json([
+            'saved_menu_id'  => $s->id,
+            'id'             => $s->menu_id, // alias for frontend compatibility
+            'name'           => $s->snapshot_name,
+            'description'    => $s->snapshot_description,
+            'phone'          => $s->snapshot_phone,
+            'address'        => $s->snapshot_address,
+            'items'          => $s->snapshot_items ?? [],
+            'items_count'    => count($s->snapshot_items ?? []),
+            'source'         => $s->source,
+            'last_synced_at' => $s->last_synced_at,
+            'created_at'     => $s->created_at,
+            'is_snapshot'    => true, // flag for frontend
+        ]);
+    }
+
+    /**
+     * Đồng bộ lại snapshot từ menu gốc.
+     *
+     * POST /api/user/saved-menus/{menuId}/sync
+     */
+    public function syncSavedMenu(Request $request, int $menuId): JsonResponse
+    {
+        $user = $request->user();
+        $menu = \App\Models\Menu::with('items')->findOrFail($menuId);
+
+        UserSavedMenu::upsertFromMenu($user->id, $menu, 'ordered');
+
+        // Lấy lại dữ liệu vừa sync
+        return $this->showSavedMenu($request, $menuId);
+    }
 }

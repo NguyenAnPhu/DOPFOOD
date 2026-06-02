@@ -9,10 +9,12 @@ let currentOrder        = null;
 let myParticipant       = null;
 let pollTimer           = null;
 let hasNavigatedToPay   = false;  // chỉ redirect 1 lần
+let isHostFormDirty     = false;
 
 PAGE?.addEventListener('page:enter', (e) => {
   stopPolling();
   hasNavigatedToPay = false;  // reset khi vào lại trang order
+  isHostFormDirty = false;
   document.getElementById('order-error')?.classList.add('hidden');
   const shareLink = e.detail.segments[1];
   if (shareLink) loadOrder(shareLink);
@@ -56,7 +58,7 @@ async function renderPage() {
   setVal('order-share-link', url);
 
   // Host badge: chỉ hiện khi đã đăng nhập và đúng là host – không bao giờ hiện cho khách
-  const isHost = !!(window.DOPAuth?.isLoggedIn && window.DOPAuth?.user && o.host_id && o.host_id === window.DOPAuth.user.id);
+  const isHost = !!(window.DOPAuth?.isLoggedIn && window.DOPAuth?.user && o.host_id && o.host_id == window.DOPAuth.user.id);
   document.getElementById('order-host-badge')?.classList.toggle('hidden', !isHost);
 
   const locked = o.status === 'locked';
@@ -198,6 +200,26 @@ function renderMyCart(p, locked) {
   const totalVal = items.reduce((s, i) => s + i.price_at_order * i.quantity, 0);
   if (total) total.textContent = fmt(totalVal);
 
+  const breakdownEl = document.getElementById('my-cart-breakdown');
+  if (breakdownEl) {
+    if (['locked', 'completed'].includes(currentOrder?.status) && p) {
+      breakdownEl.classList.remove('hidden');
+      
+      const finalAmount = p.total_share ?? 0;
+      let extra = finalAmount - totalVal; // this can be positive (shipping/tax) or negative (discount)
+      
+      // We don't have individual breakdown from backend, but we know the final share.
+      // The user wants "bao gồm giảm mục nào, cộng tiền mục nào". 
+      // If we don't have the exact breakdown per person from backend, we just show "Phụ phí / Giảm giá".
+      // Wait, let's just display the final amount clearly, and maybe the difference as "Phụ phí / Giảm giá".
+      document.getElementById('my-cart-shipping').textContent = extra > 0 ? `+ ${fmt(extra)}` : '0 ₫';
+      document.getElementById('my-cart-discount').textContent = extra < 0 ? `- ${fmt(Math.abs(extra))}` : '0 ₫';
+      document.getElementById('my-cart-final').textContent = fmt(finalAmount);
+    } else {
+      breakdownEl.classList.add('hidden');
+    }
+  }
+
   if (btnReady) {
     if (p?.status === 'ready' || locked) {
       btnReady.classList.add('hidden');
@@ -236,11 +258,13 @@ function renderParticipants(participants) {
 
 // ── Host controls ─────────────────────────────────────────────────────────────
 function renderHostControls(o) {
-  setVal('fee-shipping', o.shipping_fee ?? 0);
-  setVal('fee-tax',      o.tax_amount   ?? 0);
-  setVal('fee-discount', o.discount_amount ?? 0);
-  const r = document.querySelector(`input[name="split_type"][value="${o.split_type}"]`);
-  if (r) r.checked = true;
+  if (!isHostFormDirty) {
+    setVal('fee-shipping', o.shipping_fee ?? 0);
+    setVal('fee-tax',      o.tax_amount   ?? 0);
+    setVal('fee-discount', o.discount_amount ?? 0);
+    const r = document.querySelector(`input[name="split_type"][value="${o.split_type}"]`);
+    if (r) r.checked = true;
+  }
 
   const btnLock     = document.getElementById('btn-lock-order');
   const btnUnlock   = document.getElementById('btn-unlock-order');
@@ -398,6 +422,10 @@ document.getElementById('btn-cancel-order')?.addEventListener('click', async fun
 });
 
 // Fees
+document.getElementById('form-fees')?.addEventListener('input', () => {
+  isHostFormDirty = true;
+});
+
 document.getElementById('form-fees')?.addEventListener('submit', async function (e) {
   e.preventDefault();
   const btn = this.querySelector('button[type=submit]');
@@ -409,6 +437,7 @@ document.getElementById('form-fees')?.addEventListener('submit', async function 
       discount_amount: parseFloat(document.getElementById('fee-discount')?.value) || 0,
       split_type:      document.querySelector('input[name="split_type"]:checked')?.value ?? 'even',
     });
+    isHostFormDirty = false;
     await refresh();
     showToast('✅ Đã lưu cấu hình phí!', 'success');
   } catch (er) { showToast('Lỗi: ' + er.message, 'error'); }
