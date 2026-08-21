@@ -5,27 +5,33 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-FROM richarvey/nginx-php-fpm:latest
+FROM php:8.3-fpm-alpine
 
-USER root
+RUN apk add --no-cache \
+    nginx \
+    curl \
+    libpng-dev \
+    libzip-dev \
+    oniguruma-dev \
+    libxml2-dev \
+    postgresql-dev \
+    mysql-client \
+    git \
+    unzip
+
+RUN docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd zip
+
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+WORKDIR /var/www/html
 
 COPY . .
 
 COPY --from=frontend-builder /app/public/build /var/www/html/public/build
 
-# Image config
-ENV SKIP_COMPOSER 1
-ENV WEBROOT /var/www/html/public
-ENV PHP_ERRORS_STDERR 1
-ENV RUN_SCRIPTS 1
-ENV REAL_IP_HEADER 1
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Laravel config
-ENV APP_ENV production
-ENV APP_DEBUG false
-ENV LOG_CHANNEL stderr
+COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 
-# Allow composer to run as root
-ENV COMPOSER_ALLOW_SUPERUSER 1
-
-CMD ["/start.sh"]
+EXPOSE 80
+CMD ["sh", "-c", "php-fpm -D && nginx -g 'daemon off;'"]
