@@ -5,23 +5,9 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-FROM php:8.3-fpm-alpine
+FROM serversideup/php:8.3-fpm-nginx
 
-RUN apk add --no-cache \
-    nginx \
-    curl \
-    libpng-dev \
-    libzip-dev \
-    oniguruma-dev \
-    libxml2-dev \
-    postgresql-dev \
-    mysql-client \
-    git \
-    unzip
-
-RUN docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd zip
-
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+USER root
 
 WORKDIR /var/www/html
 
@@ -31,7 +17,6 @@ COPY --from=frontend-builder /app/public/build /var/www/html/public/build
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-COPY docker/nginx.conf /etc/nginx/http.d/default.conf
+RUN chown -R webapp:webapp /var/www/html/storage /var/www/html/bootstrap/cache
 
-EXPOSE 80
-CMD ["sh", "-c", "php-fpm -D && nginx -g 'daemon off;'"]
+USER webapp
