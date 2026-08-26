@@ -17,6 +17,6 @@ COPY --from=frontend-builder /app/public/build /var/www/html/public/build
 
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-RUN chown -R webapp:webapp /var/www/html/storage /var/www/html/bootstrap/cache
+RUN chown -R webuser:webuser /var/www/html/storage /var/www/html/bootstrap/cache
 
-USER webapp
+USER webuser
