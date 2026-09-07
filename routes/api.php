@@ -28,8 +28,8 @@ use Illuminate\Support\Facades\Route;
 // =============================================================================
 
 Route::prefix('auth')->group(function () {
-    Route::post('/register', [AuthController::class, 'register']);  // POST /api/auth/register
-    Route::post('/login',    [AuthController::class, 'login']);     // POST /api/auth/login
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');  // POST /api/auth/register
+    Route::post('/login',    [AuthController::class, 'login'])->middleware('throttle:login');     // POST /api/auth/login
     Route::post('/logout',   [AuthController::class, 'logout']);    // POST /api/auth/logout
     Route::get('/me',        [AuthController::class, 'me']);        // GET  /api/auth/me
 });
@@ -123,5 +123,11 @@ Route::middleware('auth:web')->group(function () {
             '/{orderId}/participants/{id}/approve',
             [OrderParticipantController::class, 'approvePayment']
         );  // PATCH /api/orders/{orderId}/participants/{id}/approve
+
+        // Host xóa thành viên khỏi đơn
+        Route::delete(
+            '/{orderId}/participants/{id}',
+            [OrderParticipantController::class, 'destroy']
+        );  // DELETE /api/orders/{orderId}/participants/{id}
     });
 });

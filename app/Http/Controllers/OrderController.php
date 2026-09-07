@@ -117,12 +117,30 @@ class OrderController extends Controller
                 $order->bank_account_number = $order->host->bank_account_number;
                 $order->bank_account_name = $order->host->bank_account_name;
             }
-            if (empty($order->qr_image_url)) {
+
+            // Ảnh QR: nếu đơn chưa có ảnh HOẶC ảnh đã bị xóa/mất file
+            // (vd: Host tải ảnh mới → ảnh cũ bị xóa, snapshot cũ trỏ tới file không còn)
+            // thì dùng ảnh QR hiện tại của Host.
+            if (empty($order->qr_image_url) || ! $this->qrImageFileExists($order->qr_image_url)) {
                 $order->qr_image_url = $order->host->qr_image_url;
             }
         }
 
         return response()->json($order);
+    }
+
+    /**
+     * Kiểm tra file ảnh QR (đường dẫn /storage/...) có thực sự tồn tại trên disk public hay không.
+     */
+    private function qrImageFileExists(?string $url): bool
+    {
+        if (! $url) {
+            return false;
+        }
+
+        $path = str_replace('/storage/', '', $url);
+
+        return \Illuminate\Support\Facades\Storage::disk('public')->exists($path);
     }
 
     /**

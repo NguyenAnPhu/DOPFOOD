@@ -58,6 +58,7 @@ class OrderSeeder extends Seeder
         // Host (Minh) đã join đơn của mình
         $p1_host = OrderParticipant::create([
             'order_id'      => $order1->id,
+            'user_id'       => $host->id,
             'guest_name'    => 'Minh (Host)',
             'guest_phone'   => '0912345678',
             'session_token' => Str::random(40),
@@ -163,6 +164,7 @@ class OrderSeeder extends Seeder
 
         $p2_host = OrderParticipant::create([
             'order_id'       => $order2->id,
+            'user_id'        => $host->id,
             'guest_name'     => 'Minh (Host)',
             'guest_phone'    => '0912345678',
             'session_token'  => Str::random(40),
@@ -260,6 +262,7 @@ class OrderSeeder extends Seeder
 
         $p3_minh = OrderParticipant::create([
             'order_id'       => $order3->id,
+            'user_id'        => $host->id,
             'guest_name'     => 'Minh (Host)',
             'guest_phone'    => '0912345678',
             'session_token'  => Str::random(40),

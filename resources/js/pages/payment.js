@@ -8,6 +8,8 @@
 
 import { api, guestSession } from '../api.js';
 import { fmt } from '../utils.js';
+import { Fancybox } from '@fancyapps/ui';
+import '@fancyapps/ui/dist/fancybox/fancybox.css';
 
 const PAGE = document.getElementById('page-payment');
 
@@ -16,8 +18,21 @@ let pollTimer    = null;
 
 PAGE?.addEventListener('page:enter', (e) => {
   stopPolling();
+  // Reset trạng thái nút còn sót từ đơn trước (chữ 'Đang gửi…' / disabled)
+  document.querySelectorAll('[data-action-label]').forEach(btn => {
+    btn.disabled = false;
+    btn.textContent = btn.dataset.actionLabel;
+  });
   const shareLink = e.detail.segments[1]; // /pay/:link
   if (shareLink) loadPayment(shareLink);
+});
+
+// ─── Fancybox: xem to ảnh QR ngân hàng của Host ──────────────────────────────
+// Anchor #pay-qr-link là phần tử tĩnh trong DOM → bind một lần là đủ;
+// href/data-src được cập nhật mỗi lần render theo ảnh QR hiện tại.
+Fancybox.bind('[data-fancybox="pay-qr"]', {
+  Thumbs: false,
+  Toolbar: { display: ['zoomIn', 'zoomOut', 'fullscreen', 'close'] },
 });
 
 async function loadPayment(shareLink) {
@@ -65,23 +80,29 @@ function renderMyPayment(participant, order) {
 
   if (participant.payment_status === 'pending') {
     const qrSection = document.getElementById('pay-qr-section');
-    qrSection?.classList.remove('hidden');
+// QR section visibility handled below
 
     const amount = Math.round(participant.total_share);
     const img    = document.getElementById('pay-qr-img');
 
-    // Ưu tiên ảnh QR do Host upload, fallback thông tin TK
-
+    // Chỉ hiển thị QR nếu host đã tải lên (order.qr_image_url). Nếu không có, ẩn phần QR.
     if (order.qr_image_url) {
-      if (img) { img.src = order.qr_image_url; img.alt = 'QR Chuyển khoản'; }
-      if (qrSection) qrSection.classList.remove('hidden');
-    } else if (order.bank_account_number) {
-      const addInfo = encodeURIComponent(`DOPFOOD ${order.share_link} ${participant.guest_name}`);
-      const qrUrl   = `https://img.vietqr.io/image/${order.bank_name}-${order.bank_account_number}-compact2.png` +
-                      `?amount=${amount}&addInfo=${addInfo}&accountName=${encodeURIComponent(order.bank_account_name ?? '')}`;
-      if (img) { img.src = qrUrl; img.alt = 'VietQR'; }
+      if (img) {
+        // Gắn handler lỗi TẠI ĐÂY (khi có src thật) để tránh lỗi do src rỗng lúc khởi tạo
+        img.dataset.ready = '1';
+        img.onerror = qrImageError;
+        const abs = new URL(order.qr_image_url, location.origin).href;
+        if (img.src !== abs) { img.src = order.qr_image_url; img.alt = 'QR Chuyển khoản'; }
+      }
+      // Đồng bộ link Fancybox để bấm vào ảnh mở lightbox xem to
+      const qrLink = document.getElementById('pay-qr-link');
+      if (qrLink) {
+        qrLink.href = order.qr_image_url;
+        qrLink.setAttribute('data-src', order.qr_image_url);
+      }
       if (qrSection) qrSection.classList.remove('hidden');
     } else {
+      // Không có QR tải lên -> ẩn toàn bộ phần QR
       if (qrSection) qrSection.classList.add('hidden');
     }
 
@@ -224,6 +245,18 @@ function payStatusClass(s) {
 }
 function setText(id, val)       { const el = document.getElementById(id); if (el) el.textContent = val; }
 function setAttr(id, attr, val) { const el = document.getElementById(id); if (el) el.setAttribute(attr, val); }
+
+/**
+ * Xử lý khi ảnh QR không tải được.
+ * Lưu ý: khi gắn qua img.onerror, đối số đầu tiên là Event → lấy element từ currentTarget.
+ * Chỉ hiển thị thông báo khi ảnh thật đã được gán (img.dataset.ready === '1') mà vẫn lỗi.
+ */
+function qrImageError(event) {
+  const img = event?.currentTarget ?? event?.target;
+  if (!img || img.dataset.ready !== '1') return;
+  const wrap = img.closest('.flex');
+  if (wrap) wrap.innerHTML = '<p class="text-xs text-gray-400 text-center p-4 w-48">QR không tải được</p>';
+}
 function escHtml(str) {
   return String(str).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])

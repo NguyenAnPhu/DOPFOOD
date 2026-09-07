@@ -188,4 +188,55 @@ class OrderParticipantController extends Controller
             'order_closed' => $allPaid,
         ]);
     }
+
+    /**
+     * Host xóa một thành viên khỏi đơn hàng (cùng toàn bộ món họ đã chọn).
+     * Chỉ Host mới có quyền, và chỉ khi đơn chưa hoàn tất.
+     *
+     * DELETE /api/orders/{orderId}/participants/{id}
+     */
+    public function destroy(Request $request, int $orderId, int $id): JsonResponse
+    {
+        $participant = OrderParticipant::where('order_id', $orderId)->findOrFail($id);
+        $order = $participant->order;
+
+        // Chỉ Host mới được xóa thành viên
+        if (! $request->user() || $order->host_id !== $request->user()->id) {
+            return response()->json([
+                'message' => 'Chỉ Host mới có quyền xóa thành viên.',
+            ], 403);
+        }
+
+        // Chỉ xóa được khi đơn đang đặt hoặc đã khóa (chưa hoàn tất)
+        if (! in_array($order->status, ['ordering', 'locked'])) {
+            return response()->json([
+                'message' => 'Không thể xóa thành viên khi đơn đã hoàn tất.',
+            ], 422);
+        }
+
+        // Không cho xóa participant của chính Host
+        $isHostUser = $participant->user_id && (int) $participant->user_id === (int) $order->host_id;
+        $hostName = $order->host?->name;
+        $isHostByName = $hostName
+            && (strcasecmp(trim((string) $participant->guest_name), trim($hostName)) === 0
+                || stripos((string) $participant->guest_name, '(host)') !== false);
+
+        if ($isHostUser || $isHostByName) {
+            return response()->json([
+                'message' => 'Không thể xóa Host khỏi đơn hàng.',
+            ], 422);
+        }
+
+        // Cascade xóa order_items của participant
+        $participant->delete();
+
+        // Tính lại chia tiền cho các thành viên còn lại
+        $order->recalculateShares();
+        $order->refresh();
+
+        return response()->json([
+            'message'      => 'Đã xóa thành viên khỏi đơn hàng.',
+            'participants' => $order->participants()->with('items.menuItem')->get(),
+        ]);
+    }
 }

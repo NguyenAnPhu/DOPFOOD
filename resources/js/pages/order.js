@@ -16,9 +16,20 @@ PAGE?.addEventListener('page:enter', (e) => {
   hasNavigatedToPay = false;  // reset khi vào lại trang order
   isHostFormDirty = false;
   document.getElementById('order-error')?.classList.add('hidden');
+  // Reset trạng thái nút (chữ '…'/'Đang xác nhận…' + disabled còn sót từ đơn trước)
+  resetOrderActionButtons();
   const shareLink = e.detail.segments[1];
   if (shareLink) loadOrder(shareLink);
 });
+
+// Khôi phục lại nhãn & trạng thái mặc định cho các nút thao tác
+// (tránh lỗi nút bị disabled / hiển thị sai chữ sau khi chuyển đơn)
+function resetOrderActionButtons() {
+  document.querySelectorAll('[data-action-label]').forEach(btn => {
+    btn.disabled = false;
+    btn.textContent = btn.dataset.actionLabel;
+  });
+}
 
 // ── Load ─────────────────────────────────────────────────────────────────────
 async function loadOrder(link) {
@@ -142,7 +153,7 @@ async function renderPage() {
   // Participants sidebar
   const count = o.participants?.length ?? 0;
   setText('order-participant-count', count);
-  renderParticipants(o.participants ?? []);
+  renderParticipants(o.participants ?? [], isHost);
 }
 
 // ── Menu items ────────────────────────────────────────────────────────────────
@@ -204,17 +215,7 @@ function renderMyCart(p, locked) {
   if (breakdownEl) {
     if (['locked', 'completed'].includes(currentOrder?.status) && p) {
       breakdownEl.classList.remove('hidden');
-      
-      const finalAmount = p.total_share ?? 0;
-      let extra = finalAmount - totalVal; // this can be positive (shipping/tax) or negative (discount)
-      
-      // We don't have individual breakdown from backend, but we know the final share.
-      // The user wants "bao gồm giảm mục nào, cộng tiền mục nào". 
-      // If we don't have the exact breakdown per person from backend, we just show "Phụ phí / Giảm giá".
-      // Wait, let's just display the final amount clearly, and maybe the difference as "Phụ phí / Giảm giá".
-      document.getElementById('my-cart-shipping').textContent = extra > 0 ? `+ ${fmt(extra)}` : '0 ₫';
-      document.getElementById('my-cart-discount').textContent = extra < 0 ? `- ${fmt(Math.abs(extra))}` : '0 ₫';
-      document.getElementById('my-cart-final').textContent = fmt(finalAmount);
+      renderMyBreakdown(p, totalVal);
     } else {
       breakdownEl.classList.add('hidden');
     }
@@ -229,8 +230,50 @@ function renderMyCart(p, locked) {
   }
 }
 
+/**
+ * Hiển thị chi tiết phí của tôi (khớp quy tắc backend Order::recalculateShares):
+ * Phí ship, VAT, giảm giá được chia cho TẤT CẢ thành viên (kể cả Host):
+ *   - 'individual': chia theo tỷ lệ tiền món của từng người
+ *   - 'even': chia đều cho mọi người
+ *   - 'none': Host bao toàn bộ (thành viên không phải trả phí)
+ */
+function renderMyBreakdown(p, itemsTotal) {
+  const o = currentOrder;
+  if (!o) return;
+
+  const tax = Number(o.tax_amount ?? 0);
+  const ship = Number(o.shipping_fee ?? 0);
+  const discount = Number(o.discount_amount ?? 0);
+  const all = o.participants ?? [];
+  const n = all.length || 1;
+
+  let shipShare = 0, taxShare = 0, discountShare = 0;
+
+  if (o.split_type === 'even') {
+    shipShare = ship / n;
+    taxShare = tax / n;
+    discountShare = discount / n;
+  } else if (o.split_type === 'individual') {
+    const orderSubtotal = all.reduce((s, x) => s + (x.items ?? []).reduce((a, i) => a + i.price_at_order * i.quantity, 0), 0);
+    const ratio = orderSubtotal > 0 ? itemsTotal / orderSubtotal : 0;
+    shipShare = ship * ratio;
+    taxShare = tax * ratio;
+    discountShare = discount * ratio;
+  }
+  // 'none' → tất cả bằng 0 (Host bao)
+
+  shipShare = Math.round(shipShare);
+  taxShare = Math.round(taxShare);
+  discountShare = Math.round(discountShare);
+
+  setText('my-cart-shipping', shipShare    > 0 ? `+ ${fmt(shipShare)}` : '0 ₫');
+  setText('my-cart-tax',      taxShare     > 0 ? `+ ${fmt(taxShare)}`  : '0 ₫');
+  setText('my-cart-discount', discountShare> 0 ? `- ${fmt(discountShare)}` : '0 ₫');
+  setText('my-cart-final',    fmt(p.total_share ?? 0));
+}
+
 // ── Participants ──────────────────────────────────────────────────────────────
-function renderParticipants(participants) {
+function renderParticipants(participants, isHost) {
   const el = document.getElementById('order-participants');
   if (!el) return;
 
@@ -239,8 +282,16 @@ function renderParticipants(participants) {
     return;
   }
 
-  el.innerHTML = participants.map(p => `
-    <div class="flex items-center gap-2.5 py-2.5 border-b border-gray-50 last:border-0">
+  el.innerHTML = participants.map(p => {
+    // Participant của Host (user_id khớp host_id, tên chứa '(Host)', hoặc trùng tên user Host) → không cho xóa
+    const hostName = (currentOrder?.host?.name ?? '').trim().toLowerCase();
+    const guestName = (p.guest_name ?? '').trim();
+    const isPHost = !!(currentOrder?.host_id && p.user_id && currentOrder.host_id == p.user_id)
+      || /\s\(host\)/i.test(guestName)
+      || (hostName && guestName.toLowerCase() === hostName);
+
+    return `
+    <div class="relative flex items-center gap-2.5 py-2.5 pr-8 border-b border-gray-50 last:border-0">
       <div class="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600
                   flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
         ${esc(p.guest_name.charAt(0).toUpperCase())}
@@ -252,9 +303,34 @@ function renderParticipants(participants) {
       <span class="status-badge text-xs ${p.status === 'ready' ? 'badge-green' : 'badge-yellow'}">
         ${p.status === 'ready' ? '✅ Xong' : '💬 Đang chọn'}
       </span>
+      ${isHost && !isPHost ? `
+        <!-- Icon thùng rác ở góc phải trên – chỉ Host thấy -->
+        <button onclick="removeParticipant(${p.id}, '${escJs(p.guest_name)}')"
+                class="absolute top-1.5 right-1 p-1 rounded-md text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                title="Xóa thành viên" aria-label="Xóa ${esc(p.guest_name)}">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+          </svg>
+        </button>
+      ` : ''}
     </div>
-  `).join('');
+  `}).join('');
 }
+
+/**
+ * Host xóa một thành viên khỏi đơn hàng.
+ */
+window.removeParticipant = async function (participantId, guestName) {
+  if (!currentOrder) return;
+  if (!confirm(`Xóa "${guestName}" khỏi đơn hàng?`)) return;
+  try {
+    await api.delete(`/orders/${currentOrder.id}/participants/${participantId}`);
+    await refresh();
+    showToast(`🗑️ Đã xóa ${guestName} khỏi đơn!`, 'success');
+  } catch (er) {
+    showToast('Lỗi: ' + er.message, 'error');
+  }
+};
 
 // ── Host controls ─────────────────────────────────────────────────────────────
 function renderHostControls(o) {

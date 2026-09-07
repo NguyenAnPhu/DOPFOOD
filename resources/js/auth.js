@@ -30,8 +30,8 @@ export const auth = {
   /**
    * Đăng nhập – tự động lấy CSRF trước.
    */
-  async login(email, password) {
-    const res = await api.post('/auth/login', { email, password });
+  async login(email, password, remember = false) {
+    const res = await api.post('/auth/login', { email, password, remember });
     _user = res.user;
     updateNavUI();
     return res;
@@ -116,19 +116,24 @@ function updateNavUI() {
   const guestPlaceholder = document.getElementById('guest-menu-placeholder');
   const menuLibSection   = document.getElementById('menu-library-section');
 
+  // Dùng classList hidden thay vì style.display:
+  // - Nhất quán với Tailwind `.hidden` (đã được tăng ưu tiên trong blade)
+  // - Tránh lỗi `.hidden{display:none!important}` đè lên style inline còn sót
   if (auth.isLoggedIn) {
-    if (guestZone) guestZone.style.display = 'none';
-    if (userZone) userZone.style.display = 'flex';
-    if (historyLink) historyLink.style.display = 'block';
-    if (heroRegBtn) heroRegBtn.style.display = 'none';
-    if (createMenuBtn) createMenuBtn.style.display = 'block';
-    if (createMenuItemBtn) createMenuItemBtn.style.display = 'block';
+    guestZone?.classList.add('hidden');
+    userZone?.classList.remove('hidden');
+    historyLink?.classList.remove('hidden');
+    heroRegBtn?.classList.add('hidden');
+    createMenuBtn?.classList.remove('hidden');
+    createMenuItemBtn?.classList.remove('hidden');
 
     // Hiện thư viện menu, ẩn placeholder guest
-    if (guestPlaceholder) guestPlaceholder.classList.add('hidden');
-    if (menuLibSection) menuLibSection.classList.remove('hidden');
+    guestPlaceholder?.classList.add('hidden');
+    menuLibSection?.classList.remove('hidden');
 
     if (userNameEl) userNameEl.textContent = _user.name;
+    const avatarEl = document.getElementById('nav-user-avatar');
+    if (avatarEl && _user.name) avatarEl.textContent = _user.name.charAt(0).toUpperCase();
 
     // Trigger load saved menus cho trang home
     const homePage = document.getElementById('page-home');
@@ -136,16 +141,16 @@ function updateNavUI() {
       homePage.dispatchEvent(new CustomEvent('auth:changed', { detail: { loggedIn: true } }));
     }
   } else {
-    if (guestZone) guestZone.style.display = 'flex';
-    if (userZone) userZone.style.display = 'none';
-    if (historyLink) historyLink.style.display = 'none';
-    if (heroRegBtn) heroRegBtn.style.display = 'inline-flex';
-    if (createMenuBtn) createMenuBtn.style.display = 'none';
-    if (createMenuItemBtn) createMenuItemBtn.style.display = 'none';
+    guestZone?.classList.remove('hidden');
+    userZone?.classList.add('hidden');
+    historyLink?.classList.add('hidden');
+    heroRegBtn?.classList.remove('hidden');
+    createMenuBtn?.classList.add('hidden');
+    createMenuItemBtn?.classList.add('hidden');
 
     // Ẩn thư viện menu, hiện placeholder guest
-    if (guestPlaceholder) guestPlaceholder.classList.remove('hidden');
-    if (menuLibSection) menuLibSection.classList.add('hidden');
+    guestPlaceholder?.classList.remove('hidden');
+    menuLibSection?.classList.add('hidden');
   }
 }
 

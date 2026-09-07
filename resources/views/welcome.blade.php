@@ -36,6 +36,11 @@
       display: inline-flex; align-items: center; padding: 2px 10px;
       border-radius: 99px; font-size: 11px; font-weight: 600; white-space: nowrap;
     }
+
+    /* Tailwind .hidden (display:none) bị đè bởi các class có display riêng
+       (.status-badge, .btn-primary, .btn-secondary...) vì khối <style> này
+       nằm sau CSS đã compile → ưu tiên hơn. Buộc .hidden luôn thắng. */
+    .hidden { display: none !important; }
     .badge-yellow { background: #fef9c3; color: #92400e; }
     .badge-blue   { background: #dbeafe; color: #1e40af; }
     .badge-green  { background: #dcfce7; color: #166534; }
@@ -388,7 +393,7 @@
                   <p class="text-xs text-gray-500" id="join-auth-phone"></p>
                 </div>
               </div>
-              <button id="btn-join-auth" class="btn-primary w-full">🚀 Tham gia ngay</button>
+              <button id="btn-join-auth" class="btn-primary w-full" data-action-label="🚀 Tham gia ngay">🚀 Tham gia ngay</button>
               <button id="btn-join-other" class="btn-ghost w-full text-sm">Chơi hệ ẩn danh (Nhập tên khác)</button>
             </div>
 
@@ -402,7 +407,7 @@
                 <label for="join-phone" class="form-label">Số điện thoại <span class="text-gray-400 font-normal">(tùy chọn)</span></label>
                 <input id="join-phone" type="tel" class="form-input" placeholder="0912 345 678" />
               </div>
-              <button type="submit" class="btn-primary w-full">🚀 Tham gia đặt món</button>
+              <button type="submit" class="btn-primary w-full" data-action-label="🚀 Tham gia đặt món">🚀 Tham gia đặt món</button>
             </form>
           </div>
 
@@ -422,11 +427,15 @@
             </div>
             <div id="my-cart-breakdown" class="hidden mt-2 pt-2 border-t border-dashed border-gray-200 space-y-1.5">
               <div class="flex items-center justify-between text-sm">
-                <span class="text-gray-500">Phí ship (chia sẻ)</span>
+                <span class="text-gray-500">Phí ship</span>
                 <span id="my-cart-shipping" class="text-gray-700 font-medium">0 ₫</span>
               </div>
               <div class="flex items-center justify-between text-sm">
-                <span class="text-gray-500">Giảm giá (chia sẻ)</span>
+                <span class="text-gray-500">VAT</span>
+                <span id="my-cart-tax" class="text-gray-700 font-medium">0 ₫</span>
+              </div>
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-500">Giảm giá</span>
                 <span id="my-cart-discount" class="text-gray-700 font-medium">0 ₫</span>
               </div>
               <div class="flex items-center justify-between pt-2 mt-2 border-t border-gray-200">
@@ -434,7 +443,7 @@
                 <span id="my-cart-final" class="font-black text-orange-600 text-lg">0 ₫</span>
               </div>
             </div>
-            <button id="btn-ready" class="btn-primary w-full mt-4">✅ Hoàn tất chọn món</button>
+            <button id="btn-ready" class="btn-primary w-full mt-4" data-action-label="✅ Hoàn tất chọn món">✅ Hoàn tất chọn món</button>
           </div>
 
         </div>
@@ -490,16 +499,16 @@
             </form>
 
             <div class="pt-3 border-t border-gray-100 space-y-2">
-              <button id="btn-lock-order" class="btn-secondary w-full hidden text-sm">
+              <button id="btn-lock-order" class="btn-secondary w-full hidden text-sm" data-action-label="🔒 Chốt đơn (Khóa chọn món)">
                 🔒 Chốt đơn (Khóa chọn món)
               </button>
-              <button id="btn-unlock-order" class="btn-ghost w-full hidden text-sm text-amber-600">
+              <button id="btn-unlock-order" class="btn-ghost w-full hidden text-sm text-amber-600" data-action-label="🔓 Mở lại chọn món">
                 🔓 Mở lại chọn món
               </button>
-              <button id="btn-complete-order" class="btn-primary w-full hidden">
+              <button id="btn-complete-order" class="btn-primary w-full hidden" data-action-label="🎉 Hoàn tất → Thanh toán">
                 🎉 Hoàn tất → Thanh toán
               </button>
-              <button id="btn-cancel-order" class="btn-ghost w-full hidden text-sm text-red-500 hover:bg-red-50 transition-colors">
+              <button id="btn-cancel-order" class="btn-ghost w-full hidden text-sm text-red-500 hover:bg-red-50 transition-colors" data-action-label="❌ Hủy đơn hàng">
                 ❌ Hủy đơn hàng
               </button>
             </div>
@@ -554,8 +563,13 @@
               <p class="text-xs font-semibold text-orange-700 text-center mb-3">📲 Quét QR chuyển khoản</p>
               <div class="flex justify-center mb-4">
                 <div class="bg-white p-2.5 rounded-xl border border-orange-100 shadow-sm">
-                  <img id="pay-qr-img" src="" alt="VietQR" class="w-44 h-44 object-contain"
-                       onerror="this.closest('.flex').innerHTML='<p class=\'text-xs text-gray-400 text-center p-4 w-48\'>QR không tải được</p>'" />
+                  <a id="pay-qr-link" href="#" data-fancybox="pay-qr" data-src=""
+                     data-caption="Mã QR chuyển khoản của Host"
+                     title="Bấm để xem to"
+                     class="block cursor-zoom-in">
+                    <img id="pay-qr-img" src="" alt="VietQR" class="w-44 h-44 object-contain mx-auto" />
+                  </a>
+                  <p class="text-center text-[10px] text-orange-400 mt-1.5">🔍 Bấm vào ảnh để xem rõ hơn</p>
                 </div>
               </div>
               <div class="space-y-1.5 text-xs">
@@ -565,7 +579,7 @@
                 <div class="flex justify-between bg-white rounded-lg px-3 py-2"><span class="text-gray-500">Số tiền</span><span id="pay-qr-amount" class="font-bold text-orange-600">–</span></div>
                 <div class="flex justify-between bg-white rounded-lg px-3 py-2 gap-2"><span class="text-gray-500 flex-shrink-0">Nội dung CK</span><span id="pay-transfer-note" class="font-medium text-right font-mono break-all">–</span></div>
               </div>
-              <button id="btn-submit-payment" class="btn-primary w-full mt-4 hidden">💸 Tôi đã chuyển tiền</button>
+              <button id="btn-submit-payment" class="btn-primary w-full mt-4 hidden" data-action-label="💸 Tôi đã chuyển tiền">💸 Tôi đã chuyển tiền</button>
             </div>
           </div>
         </div>
@@ -613,7 +627,21 @@
           </div>
           <div>
             <label for="login-password" class="form-label">Mật khẩu</label>
-            <input id="login-password" type="password" class="form-input" placeholder="••••••••" required autocomplete="current-password" />
+            <div class="relative w-full">
+              <input id="login-password" type="password" class="form-input" style="padding-right: 2.75rem !important;" placeholder="••••••••" required autocomplete="current-password" />
+              <button type="button" onclick="togglePasswordVisibility('login-password', this)" class="text-gray-400 hover:text-gray-600 focus:outline-none flex items-center justify-center p-1" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); border: none; background: transparent; cursor: pointer; z-index: 10;" title="Hiện mật khẩu">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-600 select-none">
+              <input id="login-remember" type="checkbox" class="w-4 h-4 rounded text-orange-500 focus:ring-orange-400 border-gray-300" checked />
+              <span>Ghi nhớ đăng nhập</span>
+            </label>
           </div>
           <p id="login-error" class="form-error hidden"></p>
           <button type="submit" id="btn-login-submit" class="btn-primary w-full">Đăng nhập</button>
@@ -640,11 +668,27 @@
           </div>
           <div>
             <label for="reg-password" class="form-label">Mật khẩu <span class="text-red-400">*</span></label>
-            <input id="reg-password" type="password" class="form-input" placeholder="Tối thiểu 8 ký tự" required autocomplete="new-password" />
+            <div class="relative w-full">
+              <input id="reg-password" type="password" class="form-input" style="padding-right: 2.75rem !important;" placeholder="Tối thiểu 8 ký tự" required autocomplete="new-password" />
+              <button type="button" onclick="togglePasswordVisibility('reg-password', this)" class="text-gray-400 hover:text-gray-600 focus:outline-none flex items-center justify-center p-1" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); border: none; background: transparent; cursor: pointer; z-index: 10;" title="Hiện mật khẩu">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                </svg>
+              </button>
+            </div>
           </div>
           <div>
             <label for="reg-password-confirm" class="form-label">Xác nhận mật khẩu <span class="text-red-400">*</span></label>
-            <input id="reg-password-confirm" type="password" class="form-input" placeholder="Nhập lại mật khẩu" required autocomplete="new-password" />
+            <div class="relative w-full">
+              <input id="reg-password-confirm" type="password" class="form-input" style="padding-right: 2.75rem !important;" placeholder="Nhập lại mật khẩu" required autocomplete="new-password" />
+              <button type="button" onclick="togglePasswordVisibility('reg-password-confirm', this)" class="text-gray-400 hover:text-gray-600 focus:outline-none flex items-center justify-center p-1" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); border: none; background: transparent; cursor: pointer; z-index: 10;" title="Hiện mật khẩu">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                </svg>
+              </button>
+            </div>
           </div>
           <p id="register-error" class="form-error hidden"></p>
           <button type="submit" id="btn-register-submit" class="btn-primary w-full">Tạo tài khoản</button>
@@ -823,6 +867,22 @@
       document.getElementById('form-register-wrap')?.classList.toggle('hidden', isLogin);
     }
 
+    function togglePasswordVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      const isPassword = input.type === 'password';
+      input.type = isPassword ? 'text' : 'password';
+      btn.title = isPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu';
+      btn.innerHTML = isPassword
+        ? `<svg class="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+             <path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
+           </svg>`
+        : `<svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+             <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+           </svg>`;
+    }
+
     // ── Auth form handlers ─────────────────────────────────
     async function handleLogin(e) {
       e.preventDefault();
@@ -834,12 +894,19 @@
       try {
         await window.DOPAuth.login(
           document.getElementById('login-email').value,
-          document.getElementById('login-password').value
+          document.getElementById('login-password').value,
+          document.getElementById('login-remember')?.checked ?? false
         );
         closeModal('modal-auth');
         showToast(`👋 Xin chào ${window.DOPAuth.user.name}!`, 'success');
       } catch(er) {
-        errEl.textContent = er.errors?.email?.[0] ?? er.message;
+        if (er.status === 429) {
+          errEl.textContent = 'Bạn đã thử đăng nhập quá 5 lần. Vui lòng đợi 1 phút rồi thử lại.';
+        } else if (er.status >= 500) {
+          errEl.textContent = 'Hệ thống gặp sự cố. Vui lòng thử lại sau.';
+        } else {
+          errEl.textContent = er.errors?.email?.[0] ?? er.errors?.password?.[0] ?? er.message ?? 'Đăng nhập thất bại.';
+        }
         errEl.classList.remove('hidden');
       } finally {
         btn.disabled = false; btn.textContent = 'Đăng nhập';
@@ -868,8 +935,14 @@
         closeModal('modal-auth');
         showToast(`🎉 Đăng ký thành công! Xin chào ${window.DOPAuth.user.name}!`, 'success');
       } catch(er) {
-        const msgs = er.errors ? Object.values(er.errors).flat().join(' · ') : er.message;
-        errEl.textContent = msgs;
+        if (er.status === 429) {
+          errEl.textContent = 'Bạn đã thao tác quá nhiều lần. Vui lòng thử lại sau 1 phút.';
+        } else if (er.status >= 500) {
+          errEl.textContent = 'Hệ thống gặp sự cố. Vui lòng thử lại sau.';
+        } else {
+          const msgs = er.errors ? Object.values(er.errors).flat().join(' · ') : (er.message || 'Đăng ký thất bại.');
+          errEl.textContent = msgs;
+        }
         errEl.classList.remove('hidden');
       } finally {
         btn.disabled = false; btn.textContent = 'Tạo tài khoản';

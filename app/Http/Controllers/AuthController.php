@@ -48,9 +48,16 @@ class AuthController extends Controller
         $credentials = $request->validate([
             'email'    => ['required', 'email'],
             'password' => ['required', 'string'],
+            'remember' => ['sometimes', 'boolean'],
         ]);
 
-        if (! Auth::attempt($credentials, remember: true)) {
+        $remember = $request->boolean('remember', false);
+        $authCredentials = [
+            'email'    => $credentials['email'],
+            'password' => $credentials['password'],
+        ];
+
+        if (! Auth::attempt($authCredentials, remember: $remember)) {
             throw ValidationException::withMessages([
                 'email' => ['Email hoặc mật khẩu không đúng.'],
             ]);

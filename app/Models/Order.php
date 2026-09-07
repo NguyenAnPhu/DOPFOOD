@@ -124,7 +124,8 @@ class Order extends Model
                 'even' => $count > 0 ? round($grandTotal / $count, 0) : 0,
 
                 // Chia theo món: tiền món của ai nấy trả
-                // Phí ship, tax, discount phân bổ theo tỷ lệ giá trị món
+                // Phí ship, VAT, giảm giá chia theo TỶ LỆ tiền món cho TẤT CẢ thành viên
+                // (bao gồm cả Host – mọi người cùng chịu phí và cùng hưởng giảm giá)
                 'individual' => $this->calculateIndividualShare($participant, $subtotal),
 
                 default => 0,
@@ -133,10 +134,27 @@ class Order extends Model
             $participant->total_share = $share;
             $participant->save();
         }
+
+        // Bù sai số làm tròn: tổng các phần có thể lệch ±vài đồng so với total_amount
+        // (mỗi phần làm tròn riêng). Cộng/trừ phần chênh lệch vào phần lớn nhất
+        // để tổng khớp chính xác với tổng bill.
+        if (in_array($this->split_type, ['even', 'individual'])) {
+            $sum = $participants->sum('total_share');
+            $diff = (int) round((float) $this->total_amount - (float) $sum);
+
+            if ($diff !== 0) {
+                $largest = $participants->sortByDesc(fn ($p) => (float) $p->total_share)->first();
+                $largest->total_share = (float) $largest->total_share + $diff;
+                $largest->save();
+            }
+        }
     }
 
     /**
-     * Tính phần chia tiền theo tỷ lệ món ăn cho một participant.
+     * Tính phần chia tiền theo tỷ lệ món ăn cho một participant (split_type = individual).
+     *
+     * Quy tắc: ship + VAT − giảm giá được phân bổ theo tỷ lệ giá trị món
+     * của từng thành viên (Host cũng là thành viên như mọi người).
      *
      * @param  \App\Models\OrderParticipant  $participant
      * @param  float  $subtotal  Tổng tiền món toàn đơn
